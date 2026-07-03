@@ -1,0 +1,4 @@
+networkx>=3.2
+pytest>=8.0
+matplotlib>=3.8
+pandas>=2.2
