@@ -12,23 +12,14 @@ DIMACS_DIR = Path(__file__).resolve().parents[2] / "instances"
 
 
 def erdos_renyi(n: int, p: float, seed: int) -> nx.Graph:
-    """G(n, p): each edge present independently with probability p.
-
-    Density is controlled directly, which is what the crossover analysis
-    needs. Note the complement of G(n, p) is G(n, 1-p), so sparse inputs
-    give dense complements and vice versa; since the algorithms run on the
-    complement this matters for interpreting the results.
-    """
+    """G(n, p). NB the complement of G(n,p) is G(n,1-p) and the algorithms
+    run on the complement, so a sparse input is a dense working graph."""
     return nx.gnp_random_graph(n, p, seed=seed)
 
 
 def barabasi_albert(n: int, m: int, seed: int) -> nx.Graph:
-    """Preferential attachment: heavy-tailed degrees, low degeneracy.
-
-    Included because real networks look more like this than like G(n, p),
-    and because degeneracy is the parameter the Eppstein-Loffler-Strash
-    bound depends on.
-    """
+    """Preferential attachment. Heavy-tailed degrees, low degeneracy, which
+    is the parameter the Eppstein-Loffler-Strash bound depends on."""
     return nx.barabasi_albert_graph(n, m, seed=seed)
 
 
@@ -52,14 +43,9 @@ def structured(name: str, n: int) -> nx.Graph:
 
 
 def read_dimacs(path) -> nx.Graph:
-    """Read a DIMACS .clq / .col file.
-
-    Format (Johnson & Trick 1996, Second DIMACS Implementation Challenge):
-        c comment line
-        p edge <nodes> <edges>
-        e <u> <v>
-    Vertices are 1-based in the file; kept as-is so instance names and
-    vertex numbers match the published benchmark descriptions.
+    """DIMACS .clq/.col reader (Johnson & Trick 1996 challenge format):
+    'c' comment, 'p edge <n> <m>', 'e <u> <v>'. Vertices stay 1-based so
+    they match the published instance descriptions.
     """
     G = nx.Graph()
     with open(path) as fh:

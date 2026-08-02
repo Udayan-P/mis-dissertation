@@ -1,20 +1,8 @@
-"""Experiment runner.
+"""Experiment runner. One CSV row per (instance, algorithm).
 
-Produces one CSV row per (instance, algorithm) with timing, output size,
-search effort and memory, so the analysis is done on data rather than on
-whatever was printed to the terminal at the time.
-
-Design decisions worth defending in the report:
-  * median of several repeats, not mean, because occasional GC pauses and
-    OS scheduling produce outliers that a mean would follow;
-  * recursion node counts recorded alongside wall-clock, because node
-    counts are machine independent and comparable across implementations;
-  * peak memory measured with tracemalloc, which counts Python allocations
-    only, so it is a relative measure between algorithms rather than an
-    absolute process footprint;
-  * a per-instance time limit, so a slow algorithm on a large instance
-    truncates the sweep for that algorithm instead of stalling the run;
-  * every generated instance records its seed, so any row can be rebuilt.
+Timings are medians over repeats (mean chases GC outliers). tracemalloc
+only sees Python allocations, so peak_kib is comparative, not a real
+process footprint.
 """
 
 import csv
@@ -60,13 +48,18 @@ class Instance:
         self.m = self.graph.number_of_edges()
 
 
-def timed_run(alg, G, repeats=5, time_limit=60.0):
-    """Return (median seconds, count, peak KiB, all timings) or None if the
-    first run already exceeds the time limit."""
+def timed_run(alg, G, repeats=5, time_limit=60.0, measure_memory=True):
+    """(median seconds, count, peak KiB, all timings).
+
+    Timing and memory are measured in SEPARATE passes. tracemalloc hooks
+    every allocation, and the bitset implementations allocate a new int per
+    set operation where the set-based ones mutate in place, so leaving it
+    on during timing penalises the bitset variants specifically - it made
+    them look about 2x worse than an uninstrumented run does.
+    """
     timings = []
     count = None
-    tracemalloc.start()
-    for i in range(repeats):
+    for _ in range(repeats):
         t0 = time.perf_counter()
         found = sum(1 for _ in alg(G))
         elapsed = time.perf_counter() - t0
@@ -74,13 +67,19 @@ def timed_run(alg, G, repeats=5, time_limit=60.0):
         count = found
         if elapsed > time_limit:
             break
-    peak = tracemalloc.get_traced_memory()[1] / 1024
-    tracemalloc.stop()
+
+    peak = float("nan")
+    if measure_memory:
+        tracemalloc.start()
+        sum(1 for _ in alg(G))
+        peak = tracemalloc.get_traced_memory()[1] / 1024
+        tracemalloc.stop()
+
     return statistics.median(timings), count, peak, timings
 
 
 def run_instance(inst: Instance, algorithms=None, repeats=5, time_limit=60.0,
-                 skip_slow=None):
+                 skip_slow=None, measure_memory=True):
     """Benchmark every algorithm on one instance. skip_slow is a mutable set
     of algorithm names that have already blown the time limit and should not
     be run on anything larger."""
@@ -92,7 +91,7 @@ def run_instance(inst: Instance, algorithms=None, repeats=5, time_limit=60.0,
             continue
         alg, variant, uses_bits = ALGORITHMS[name]
         median, count, peak, timings = timed_run(alg, inst.graph, repeats,
-                                                 time_limit)
+                                                 time_limit, measure_memory)
         nodes = ""
         if variant is not None:
             counter = count_nodes_bitset if uses_bits else count_nodes

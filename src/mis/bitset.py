@@ -1,32 +1,19 @@
-"""Bitset versions of the Bron-Kerbosch variants.
+"""Bitset versions of the BK variants.
 
-Vertices are relabelled 0..n-1 and each vertex set is a Python integer
-whose i-th bit says whether vertex i is in the set. Intersection is &,
-union is |, difference is & ~, membership is a shift and test. Python's
-integers are arbitrary precision, so this works for any n, and the set
-operations happen in C over machine words instead of in the interpreter
-over hash tables.
+Vertices are relabelled 0..n-1 and each vertex set is a Python int, bit i
+meaning vertex i is present. Bit-parallel clique enumeration follows
+San Segundo, Artieda & Strash (Computers & OR 92, 2018), though they use
+C++ word arrays and this is just Python's arbitrary-precision ints.
 
-The idea (using bit-parallelism for maximal clique enumeration) follows
-San Segundo, Artieda & Strash, "Efficiently enumerating all maximal
-cliques with bit-parallelism", Computers & Operations Research 92, 2018.
-Their implementation is in C++ with explicit word arrays; using Python
-integers is the same trick at a coarser grain.
-
-Popcount: int.bit_count() exists from Python 3.10, and is needed for the
-Tomita pivot rule, which counts |P & N(u)|.
+Needs int.bit_count() (3.10+) for the Tomita pivot popcount.
 """
 
 import networkx as nx
 
 
 def _bitset_adj(G: nx.Graph):
-    """Return (order, adjacency masks of the COMPLEMENT graph).
-
-    order maps bit position -> original vertex label, so results can be
-    translated back. As elsewhere we work on the complement, because
-    maximal independent sets of G are maximal cliques of the complement.
-    """
+    """(order, complement adjacency masks). order maps bit position back to
+    the original vertex label."""
     order = list(G.nodes)
     index = {v: i for i, v in enumerate(order)}
     n = len(order)

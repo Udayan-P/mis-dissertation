@@ -72,19 +72,10 @@ def _bk_pivot(R, P, X, adj, counter=None):
 
 
 def bk_tomita(G: nx.Graph):
-    """Tomita et al. (2006) pivot selection.
-
-    Same recursion as bk_pivot, but the pivot is chosen to maximise
-    |P intersect N(u)| over u in P union X, rather than taken arbitrarily.
-    Since we branch on P - N(u), the branching set has size
-    |P| - |P intersect N(u)|, so maximising the intersection minimises the
-    number of children at this node. Tomita et al. show this gives
-    O(3^(n/3)) worst-case time, which is optimal because a graph can have
-    that many maximal cliques (Moon & Moser 1965).
-
-    Choosing the pivot costs work at every node, so it is a trade: fewer
-    branches against more time per node. Whether that pays off in practice
-    is one of the things the experiments measure.
+    """Tomita et al. (2006) pivot selection: pick u maximising |P & N(u)|,
+    which minimises the branching set P - N(u). Gives O(3^(n/3)) worst case,
+    optimal by Moon & Moser. Costs a scan per node though, so whether it
+    wins in practice is one of the things I'm measuring.
     """
     adj = _complement_adj(G)
     yield from _bk_tomita(frozenset(), set(G.nodes), set(), adj)
@@ -105,12 +96,8 @@ def _bk_tomita(R, P, X, adj, counter=None):
 
 
 def count_nodes(G: nx.Graph, variant: str = "tomita"):
-    """Run an algorithm and return (number of maximal independent sets,
-    number of recursion tree nodes visited).
-
-    The node count is the machine-independent measure of search effort, so
-    it complements wall-clock timings in the experiments.
-    """
+    """(number of maximal independent sets, recursion nodes visited).
+    Node count is machine independent, unlike the timings."""
     adj = _complement_adj(G)
     counter = [0]
     recursions = {"basic": _bk, "pivot": _bk_pivot, "tomita": _bk_tomita}

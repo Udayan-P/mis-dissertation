@@ -1,10 +1,7 @@
 """Analysis of a campaign CSV: growth rates, pivoting speedups, plots.
 
-The headline number is the empirical growth base c, from fitting
-    log(time) = a + n * log(c)
-by least squares over the instances of one family and density. Comparing c
-against 3^(1/3) = 1.4422 (Moon & Moser 1965) says how close the measured
-behaviour is to the worst case the theory allows.
+Main number is the empirical growth base c, fitting log(time) = a + n*log(c)
+per family/density, compared against Moon-Moser 3^(1/3) = 1.4422.
 
 Usage: python scripts/analyse.py results/campaign_xxx.csv
 """
