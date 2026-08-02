@@ -2,7 +2,9 @@
 
 Based on Bron & Kerbosch, "Algorithm 457: Finding All Cliques of an
 Undirected Graph", CACM 16(9), 1973 (basic version and their version 2
-with pivoting). Tomita et al. (2006) pivot selection to be added later.
+with pivoting), and Tomita, Tanaka & Takahashi, "The worst-case time
+complexity for generating all maximal cliques and computational
+experiments", TCS 363(1), 2006, for the pivot selection rule.
 
 Uses the standard duality: S is a maximal independent set of G iff S is
 a maximal clique of the complement graph. So we enumerate cliques over
@@ -30,12 +32,14 @@ def bk_basic(G: nx.Graph):
     yield from _bk(frozenset(), set(G.nodes), set(), adj)
 
 
-def _bk(R, P, X, adj):
+def _bk(R, P, X, adj, counter=None):
+    if counter is not None:
+        counter[0] += 1
     if not P and not X:
         yield R
         return
-    for v in list(P):
-        yield from _bk(R | {v}, P & adj[v], X & adj[v], adj)
+    for v in sorted(P):
+        yield from _bk(R | {v}, P & adj[v], X & adj[v], adj, counter)
         P.remove(v)
         X.add(v)
 
@@ -51,12 +55,67 @@ def bk_pivot(G: nx.Graph):
     yield from _bk_pivot(frozenset(), set(G.nodes), set(), adj)
 
 
-def _bk_pivot(R, P, X, adj):
+def _bk_pivot(R, P, X, adj, counter=None):
+    if counter is not None:
+        counter[0] += 1
     if not P and not X:
         yield R
         return
-    u = next(iter(P | X))
-    for v in list(P - adj[u]):
-        yield from _bk_pivot(R | {v}, P & adj[v], X & adj[v], adj)
+    # lowest-numbered candidate, not an arbitrary one: iteration order over a
+    # Python set is not something to build reproducible experiments on, and a
+    # fixed rule makes the search tree identical to the bitset implementation
+    u = min(P | X)
+    for v in sorted(P - adj[u]):
+        yield from _bk_pivot(R | {v}, P & adj[v], X & adj[v], adj, counter)
         P.remove(v)
         X.add(v)
+
+
+def bk_tomita(G: nx.Graph):
+    """Tomita et al. (2006) pivot selection.
+
+    Same recursion as bk_pivot, but the pivot is chosen to maximise
+    |P intersect N(u)| over u in P union X, rather than taken arbitrarily.
+    Since we branch on P - N(u), the branching set has size
+    |P| - |P intersect N(u)|, so maximising the intersection minimises the
+    number of children at this node. Tomita et al. show this gives
+    O(3^(n/3)) worst-case time, which is optimal because a graph can have
+    that many maximal cliques (Moon & Moser 1965).
+
+    Choosing the pivot costs work at every node, so it is a trade: fewer
+    branches against more time per node. Whether that pays off in practice
+    is one of the things the experiments measure.
+    """
+    adj = _complement_adj(G)
+    yield from _bk_tomita(frozenset(), set(G.nodes), set(), adj)
+
+
+def _bk_tomita(R, P, X, adj, counter=None):
+    if counter is not None:
+        counter[0] += 1
+    if not P and not X:
+        yield R
+        return
+    # ties broken by lowest vertex number, so the tree is reproducible
+    u = max(sorted(P | X), key=lambda w: len(P & adj[w]))
+    for v in sorted(P - adj[u]):
+        yield from _bk_tomita(R | {v}, P & adj[v], X & adj[v], adj, counter)
+        P.remove(v)
+        X.add(v)
+
+
+def count_nodes(G: nx.Graph, variant: str = "tomita"):
+    """Run an algorithm and return (number of maximal independent sets,
+    number of recursion tree nodes visited).
+
+    The node count is the machine-independent measure of search effort, so
+    it complements wall-clock timings in the experiments.
+    """
+    adj = _complement_adj(G)
+    counter = [0]
+    recursions = {"basic": _bk, "pivot": _bk_pivot, "tomita": _bk_tomita}
+    if variant not in recursions:
+        raise ValueError(f"unknown variant: {variant}")
+    found = sum(1 for _ in recursions[variant](
+        frozenset(), set(G.nodes), set(), adj, counter))
+    return found, counter[0]

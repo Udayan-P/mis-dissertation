@@ -8,7 +8,7 @@ import time
 import networkx as nx
 
 from mis.naive import naive_mis
-from mis.bron_kerbosch import bk_basic, bk_pivot
+from mis.bron_kerbosch import bk_basic, bk_pivot, bk_tomita, count_nodes
 
 GRAPHS = [
     ("P4 path", nx.path_graph(4)),
@@ -20,7 +20,8 @@ GRAPHS = [
     ("G(18, 0.5)", nx.gnp_random_graph(18, 0.5, seed=1)),
 ]
 
-ALGS = [("naive 2^n", naive_mis), ("BK basic", bk_basic), ("BK pivot", bk_pivot)]
+ALGS = [("naive 2^n", naive_mis), ("BK basic", bk_basic), ("BK pivot", bk_pivot),
+        ("Tomita", bk_tomita)]
 
 
 def run():
@@ -37,7 +38,12 @@ def run():
         agree = "yes" if len(set(counts)) == 1 else "NO!"
         cells = "".join(f"{c:>7} {t*1000:5.1f}ms" for c, t in zip(counts, times))
         print(f"{gname:<15} {G.number_of_nodes():>3} {cells}{agree:>6}")
-    print("\ncounts = number of maximal independent sets, all three must agree")
+    print("\ncounts = number of maximal independent sets, all must agree")
+    print("\nrecursion tree nodes visited (machine independent effort):")
+    for gname, G in GRAPHS[-3:]:
+        row = {v: count_nodes(G, v) for v in ("basic", "pivot", "tomita")}
+        print(f"  {gname:<15} basic={row['basic'][1]:<7} "
+              f"pivot={row['pivot'][1]:<7} tomita={row['tomita'][1]}")
 
 
 if __name__ == "__main__":

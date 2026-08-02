@@ -1,0 +1,20 @@
+{
+  "environment": {
+    "python": "3.10.12",
+    "platform": "Linux-6.8.0-124-generic-aarch64-with-glibc2.35",
+    "processor": "aarch64",
+    "networkx": "3.4.2",
+    "timestamp": "2026-08-02 20:50:29"
+  },
+  "args": {
+    "out": null,
+    "quick": true,
+    "max_n": 30,
+    "repeats": 3,
+    "time_limit": 30.0,
+    "dimacs": false
+  },
+  "instances": 18,
+  "rows": 126,
+  "wall_clock_seconds": 11.9
+}
