@@ -4,6 +4,7 @@ Everything is seeded so a run can be reproduced exactly. The seed used is
 recorded per instance and ends up as a column in the results CSV.
 """
 
+import random
 from pathlib import Path
 
 import networkx as nx
@@ -40,6 +41,54 @@ def structured(name: str, n: int) -> nx.Graph:
     if name not in builders:
         raise ValueError(f"unknown family: {name}")
     return builders[name](n)
+
+
+def relabel_random(G: nx.Graph, seed: int) -> nx.Graph:
+    """Randomly permute the vertex numbering.
+
+    This is a control, not a cosmetic change. The cheap pivot rule selects
+    the lowest-numbered vertex, so it reads structure out of the labelling
+    whenever the labelling carries any. Barabasi-Albert numbers the seed
+    clique first and attaches later vertices preferentially, so low labels
+    correlate with high degree; Watts-Strogatz labels are positions on a
+    ring, so neighbours are label-adjacent; Erdos-Renyi labels mean nothing.
+    Measured effect on the cheap arm's node count is 0.80x to 1.68x
+    depending on family, against 1.00x for the scanning arms, which are
+    label-invariant up to tie-breaking.
+
+    Randomising makes the cheap rule an honestly arbitrary pivot on every
+    family, so cross-family comparisons are of the rule rather than of the
+    generator's numbering conventions.
+    """
+    nodes = list(G.nodes)
+    shuffled = nodes[:]
+    random.Random(seed).shuffle(shuffled)
+    return nx.relabel_nodes(G, dict(zip(nodes, shuffled)), copy=True)
+
+
+def relabel_degeneracy(G: nx.Graph) -> nx.Graph:
+    """Number vertices by a degeneracy ordering, lowest first.
+
+    The deliberate counterpart to relabel_random: instead of removing the
+    labelling effect it makes the labelling maximally informative, so the
+    cheap rule becomes an ordering heuristic in the sense of Eppstein,
+    Loffler and Strash (2010) and San Segundo et al. (2018) rather than an
+    arbitrary choice. Used only in the labelling sub-experiment.
+    """
+    H = G.copy()
+    order = []
+    while H.number_of_nodes():
+        v = min(H.nodes, key=lambda w: H.degree(w))
+        order.append(v)
+        H.remove_node(v)
+    return nx.relabel_nodes(G, {v: i for i, v in enumerate(order)}, copy=True)
+
+
+LABELLINGS = {
+    "native": lambda G, seed: G,
+    "random": relabel_random,
+    "degeneracy": lambda G, seed: relabel_degeneracy(G),
+}
 
 
 def read_dimacs(path) -> nx.Graph:

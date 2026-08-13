@@ -15,6 +15,7 @@ structure onto the existing results without re-running any benchmarks.
 Usage: python scripts/structure_analysis.py results/crossover_v2.csv
 """
 
+import random
 import sys
 from pathlib import Path
 
@@ -53,6 +54,53 @@ def degeneracy(G):
     return max(nx.core_number(G).values())
 
 
+def clique_overlap(G, sample=200, seed=0):
+    """Mean pairwise Jaccard between maximal independent sets.
+
+    Abu-Khzam et al. (2005) predict that pivoting pays off on graphs with
+    "a large number of highly overlapping cliques" and that un-pivoted BK
+    should win "when there is little overlap among cliques". They build a
+    clique intersection graph to look at this and then use it for biology
+    rather than to test the prediction, so as far as I can tell the
+    hypothesis has never been evaluated.
+
+    Their CIG needs an arbitrary intersection threshold; mean pairwise
+    Jaccard is the same idea as a single threshold-free scalar. Quadratic
+    in the number of sets, so sample when there are many.
+    """
+    sets = [frozenset(s) for s in nx.find_cliques(nx.complement(G))]
+    if len(sets) < 2:
+        return 0.0
+    if len(sets) > sample:
+        sets = random.Random(seed).sample(sets, sample)
+    tot = pairs = 0.0
+    for i in range(len(sets)):
+        for j in range(i + 1, len(sets)):
+            u = len(sets[i] | sets[j])
+            if u:
+                tot += len(sets[i] & sets[j]) / u
+            pairs += 1
+    return tot / pairs if pairs else 0.0
+
+
+def ck_ratio(G):
+    """Cazals & Karande's mechanism as a per-instance number.
+
+    RR-5615 / TCS 2008: pivoting from P alone degrades "whenever any node
+    in P has a number of neighbors larger than the size of a clique to be
+    discovered" - their K_n u K_{1,n} worst case. The algorithms work on
+    the complement, so the quantity is the complement's maximum degree
+    against the size of the largest maximal independent set. A ratio above
+    1 means the configuration that breaks P-only pivoting is available;
+    the larger it is, the more room there is for it to occur.
+    """
+    C = nx.complement(G)
+    if C.number_of_edges() == 0:
+        return 0.0
+    omega = max((len(c) for c in nx.find_cliques(C)), default=1)
+    return max(dict(C.degree()).values()) / max(omega, 1)
+
+
 def structural_features(df):
     rows = []
     for (inst, fam, n, p, seed), _ in df.groupby(
@@ -69,6 +117,9 @@ def structural_features(df):
             "comp_clustering": nx.average_clustering(C),
             "density": nx.density(G),
             "deg_ratio": degeneracy(C) / n,
+            # the two predictors the literature names and never tests
+            "clique_overlap": clique_overlap(G),
+            "ck_ratio": ck_ratio(G),
         })
     return pd.DataFrame(rows)
 
@@ -95,18 +146,19 @@ def main(path):
 
     print("median structural properties by family")
     cols = ["degeneracy", "comp_degeneracy", "deg_ratio", "clustering",
-            "density", "node_gain", "tomita_gain"]
+            "density", "clique_overlap", "ck_ratio", "node_gain",
+            "tomita_gain"]
     print(m.groupby("family")[cols].median().round(3).to_string())
 
     print("\ncorrelation with tomita_gain (time ratio pivot/tomita)")
     for c in ["degeneracy", "comp_degeneracy", "deg_ratio", "clustering",
-              "density", "n", "node_gain"]:
+              "density", "clique_overlap", "ck_ratio", "n", "node_gain"]:
         r = spearman(m[c], m["tomita_gain"])
         print(f"  {c:<18} spearman r = {r:+.3f}")
 
     print("\ncorrelation with node_gain (tree size ratio pivot/tomita)")
     for c in ["degeneracy", "comp_degeneracy", "deg_ratio", "clustering",
-              "density"]:
+              "density", "clique_overlap", "ck_ratio"]:
         r = spearman(m[c], m["node_gain"])
         print(f"  {c:<18} spearman r = {r:+.3f}")
 

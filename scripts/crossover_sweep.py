@@ -23,7 +23,13 @@ from mis.benchmark import build_sweep, run_instance, write_csv
 
 RESULTS = Path(__file__).resolve().parents[1] / "results"
 
-VARIANTS = ["bk_basic", "bk_pivot", "bk_tomita",
+# The full 2x2 of pivot source against selection cost, plus the un-pivoted
+# floor and the bitset counterparts. bk_pivot_p and bk_ikgp are the P-only
+# row; without them there is no 2x2 and no comparison with Cazals & Karande
+# or Abu-Khzam et al.
+VARIANTS = ["bk_basic",
+            "bk_pivot", "bk_tomita",        # source P u X: cheap, scanning
+            "bk_pivot_p", "bk_ikgp",        # source P:     cheap, scanning
             "bk_basic_bit", "bk_pivot_bit", "bk_tomita_bit"]
 
 
@@ -36,6 +42,12 @@ def main():
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--time-limit", type=float, default=30.0)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--labellings", default="random",
+                    help="comma-separated: random, native, degeneracy. "
+                         "Headline runs use random alone; pass all three for "
+                         "the labelling sub-experiment (triples the run).")
+    ap.add_argument("--densities", default="0.3,0.5,0.7",
+                    help="Erdos-Renyi edge probabilities")
     args = ap.parse_args()
 
     RESULTS.mkdir(exist_ok=True)
@@ -46,10 +58,14 @@ def main():
     seeds = list(range(1, args.seeds + 1))
     # p=0.1 is dropped: sparse inputs mean dense complements and the output
     # itself explodes, which measures output size rather than search quality
-    instances = build_sweep(ns=ns, ps=[0.3, 0.5, 0.7], seeds=seeds,
-                            families=("er", "ba", "ws"))
+    labellings = tuple(s.strip() for s in args.labellings.split(","))
+    densities = [float(s) for s in args.densities.split(",")]
+    instances = build_sweep(ns=ns, ps=densities, seeds=seeds,
+                            families=("er", "ba", "ws"),
+                            labellings=labellings)
 
-    print(f"{len(instances)} instances, n={ns[0]}..{ns[-1]} -> {out}")
+    print(f"{len(instances)} instances, n={ns[0]}..{ns[-1]}, "
+          f"{len(VARIANTS)} arms, labellings={','.join(labellings)} -> {out}")
     rows, skip_slow = [], set()
     t0 = time.perf_counter()
     for i, inst in enumerate(sorted(instances, key=lambda x: x.n), 1):
