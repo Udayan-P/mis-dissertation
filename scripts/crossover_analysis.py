@@ -29,56 +29,83 @@ def load(paths):
 
 
 def ratio_table(df, a, b, label):
-    """median(time_a / time_b) per n."""
+    """median(time_a / time_b) per n, split by labelling when more than one is present.
+
+    Pooling labellings together in one median per n hides the effect: a cheap
+    pivot rule under degeneracy labelling behaves like an ordering heuristic and
+    wins almost everywhere, while under random labelling it doesn't. Averaging
+    the two into one line makes both look like noise.
+    """
+    has_lab = "labelling" in df.columns and df["labelling"].nunique() > 1
+    idx = ["instance", "n"] + (["labelling"] if has_lab else [])
     w = df[df["algorithm"].isin([a, b])].pivot_table(
-        index=["instance", "n"], columns="algorithm",
+        index=idx, columns="algorithm",
         values="median_seconds").dropna().reset_index()
     if a not in w.columns or b not in w.columns:
         return None
     w["ratio"] = w[a] / w[b]
-    g = w.groupby("n")["ratio"].agg(["median", "count"])
+    group_cols = ["labelling", "n"] if has_lab else ["n"]
+    g = w.groupby(group_cols)["ratio"].agg(["median", "count"])
     print(f"\n{label}  (>1 means {b} is faster)")
-    print(f"{'n':>5}{'ratio':>9}{'instances':>11}")
-    for n, row in g.iterrows():
-        flag = "  <-- crossover" if row["median"] > 1 else ""
-        print(f"{n:>5}{row['median']:>9.2f}{int(row['count']):>11}{flag}")
+    if has_lab:
+        print(f"{'labelling':>12}{'n':>5}{'ratio':>9}{'instances':>11}")
+        for (lab, n), row in g.iterrows():
+            flag = "  <-- crossover" if row["median"] > 1 else ""
+            print(f"{lab:>12}{n:>5}{row['median']:>9.2f}{int(row['count']):>11}{flag}")
+    else:
+        print(f"{'n':>5}{'ratio':>9}{'instances':>11}")
+        for n, row in g.iterrows():
+            flag = "  <-- crossover" if row["median"] > 1 else ""
+            print(f"{n:>5}{row['median']:>9.2f}{int(row['count']):>11}{flag}")
     return g
 
 
 def per_node_cost(df):
-    """Microseconds of wall clock per recursion node."""
+    """Microseconds of wall clock per recursion node, split by labelling."""
     d = df[df["recursion_nodes"].notna() & (df["recursion_nodes"] > 0)].copy()
     if d.empty:
         return
     d["us_per_node"] = d["median_seconds"] * 1e6 / d["recursion_nodes"]
+    has_lab = "labelling" in d.columns and d["labelling"].nunique() > 1
     print("\ntime per recursion node (microseconds, median over instances)")
-    piv = d.pivot_table(index="n", columns="algorithm", values="us_per_node")
-    cols = [c for c in ["bk_basic", "bk_pivot", "bk_tomita"] if c in piv]
-    print(piv[cols].round(2).to_string())
+    cols = [c for c in ["bk_basic", "bk_pivot", "bk_tomita"] if c in d["algorithm"].unique()]
+    if has_lab:
+        for lab, g in d.groupby("labelling"):
+            print(f"\n  labelling = {lab}")
+            piv = g.pivot_table(index="n", columns="algorithm", values="us_per_node")
+            print(piv[[c for c in cols if c in piv.columns]].round(2).to_string())
+    else:
+        piv = d.pivot_table(index="n", columns="algorithm", values="us_per_node")
+        print(piv[[c for c in cols if c in piv.columns]].round(2).to_string())
     print("\nIf Tomita's per-node cost stays flat while its node count keeps "
           "falling relative to the others, it wins eventually; if per-node "
           "cost grows with n, it may not.")
 
 
 def node_ratios(df):
-    w = df.pivot_table(index=["instance", "n"], columns="algorithm",
+    has_lab = "labelling" in df.columns and df["labelling"].nunique() > 1
+    idx = ["instance", "n"] + (["labelling"] if has_lab else [])
+    w = df.pivot_table(index=idx, columns="algorithm",
                        values="recursion_nodes").dropna().reset_index()
     if not {"bk_basic", "bk_pivot", "bk_tomita"} <= set(w.columns):
         return
     w["basic_over_tomita"] = w["bk_basic"] / w["bk_tomita"]
     w["pivot_over_tomita"] = w["bk_pivot"] / w["bk_tomita"]
+    group_cols = ["labelling", "n"] if has_lab else ["n"]
     print("\nsearch tree size ratios (>1 means tomita searches less)")
-    print(w.groupby("n")[["basic_over_tomita", "pivot_over_tomita"]]
+    print(w.groupby(group_cols)[["basic_over_tomita", "pivot_over_tomita"]]
           .median().round(2).to_string())
 
 
 def plots(df):
     FIG.mkdir(exist_ok=True)
 
-    # pivot vs tomita ratio against n
+    # pivot vs tomita ratio against n, one line per family
+    has_lab = "labelling" in df.columns and df["labelling"].nunique() > 1
     w = df[df["algorithm"].isin(["bk_pivot", "bk_tomita"])].pivot_table(
-        index=["instance", "n", "family"], columns="algorithm",
-        values="median_seconds").dropna().reset_index()
+        index=["instance", "n", "family"]
+              + (["labelling"] if has_lab else []),
+        columns="algorithm", values="median_seconds").dropna().reset_index()
     if {"bk_pivot", "bk_tomita"} <= set(w.columns):
         w["ratio"] = w["bk_pivot"] / w["bk_tomita"]
         plt.figure(figsize=(7, 4.5))
@@ -93,6 +120,22 @@ def plots(df):
         plt.grid(alpha=0.3)
         plt.tight_layout()
         plt.savefig(FIG / "pivot_vs_tomita_crossover.png", dpi=150)
+        plt.close()
+
+    # pivot vs tomita ratio against n, one line per labelling
+    if has_lab:
+        plt.figure(figsize=(7, 4.5))
+        for lab, d in w.groupby("labelling"):
+            g = d.groupby("n")["ratio"].median()
+            plt.plot(g.index, g.values, marker="o", ms=4, label=lab)
+        plt.axhline(1.0, color="k", ls="--", lw=1, label="equal")
+        plt.xlabel("n")
+        plt.ylabel("time(pivot) / time(tomita)")
+        plt.title("Does labelling change when Tomita's pivot rule pays off?")
+        plt.legend(fontsize=8)
+        plt.grid(alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(FIG / "pivot_vs_tomita_by_labelling.png", dpi=150)
         plt.close()
 
     # bitset speedup against n

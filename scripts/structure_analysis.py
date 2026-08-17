@@ -124,12 +124,37 @@ def structural_features(df):
     return pd.DataFrame(rows)
 
 
+CORR_COLS = ["degeneracy", "comp_degeneracy", "deg_ratio", "clustering",
+             "density", "clique_overlap", "ck_ratio", "n", "node_gain"]
+
+
+def correlation_block(m, label_prefix=""):
+    print(f"\n{label_prefix}correlation with tomita_gain (time ratio pivot/tomita)")
+    for c in CORR_COLS:
+        r = spearman(m[c], m["tomita_gain"])
+        print(f"  {c:<18} spearman r = {r:+.3f}")
+
+    print(f"\n{label_prefix}correlation with node_gain (tree size ratio pivot/tomita)")
+    for c in CORR_COLS[:-1]:
+        r = spearman(m[c], m["node_gain"])
+        print(f"  {c:<18} spearman r = {r:+.3f}")
+
+    print(f"\n{label_prefix}tomita_gain by complement-degeneracy quartile")
+    q = pd.qcut(m["comp_degeneracy"], 4, labels=["Q1 low", "Q2", "Q3", "Q4 high"],
+                duplicates="drop")
+    print(m.groupby(q, observed=True)[["comp_degeneracy", "tomita_gain",
+                                        "node_gain"]].median().round(3).to_string())
+
+
 def main(path):
     df = pd.read_csv(path)
     FIG.mkdir(exist_ok=True)
 
+    has_lab = "labelling" in df.columns and df["labelling"].nunique() > 1
+    idx = ["instance", "family", "n"] + (["labelling"] if has_lab else [])
+
     ratios = df[df["algorithm"].isin(["bk_pivot", "bk_tomita"])].pivot_table(
-        index=["instance", "family", "n"], columns="algorithm",
+        index=idx, columns="algorithm",
         values="median_seconds").dropna().reset_index()
     ratios["tomita_gain"] = ratios["bk_pivot"] / ratios["bk_tomita"]
 
@@ -138,36 +163,40 @@ def main(path):
         values="recursion_nodes").dropna().reset_index()
     nodes["node_gain"] = nodes["bk_pivot"] / nodes["bk_tomita"]
 
+    # structural features (degeneracy, clustering, density, clique overlap, ...)
+    # are invariant to vertex labelling -- relabelling only permutes vertex
+    # numbers, it does not change the graph. They get recomputed once per
+    # instance name (which already encodes the labelling), so this is
+    # redundant but not wrong.
     feats = structural_features(df)
     m = ratios.merge(feats, on="instance").merge(
         nodes[["instance", "node_gain"]], on="instance")
 
     print(f"{len(m)} instances with structure computed\n")
 
-    print("median structural properties by family")
+    print("median structural properties by family" + (" and labelling" if has_lab else ""))
     cols = ["degeneracy", "comp_degeneracy", "deg_ratio", "clustering",
             "density", "clique_overlap", "ck_ratio", "node_gain",
             "tomita_gain"]
-    print(m.groupby("family")[cols].median().round(3).to_string())
+    group_cols = ["family", "labelling"] if has_lab else "family"
+    print(m.groupby(group_cols)[cols].median().round(3).to_string())
 
-    print("\ncorrelation with tomita_gain (time ratio pivot/tomita)")
-    for c in ["degeneracy", "comp_degeneracy", "deg_ratio", "clustering",
-              "density", "clique_overlap", "ck_ratio", "n", "node_gain"]:
-        r = spearman(m[c], m["tomita_gain"])
-        print(f"  {c:<18} spearman r = {r:+.3f}")
-
-    print("\ncorrelation with node_gain (tree size ratio pivot/tomita)")
-    for c in ["degeneracy", "comp_degeneracy", "deg_ratio", "clustering",
-              "density", "clique_overlap", "ck_ratio"]:
-        r = spearman(m[c], m["node_gain"])
-        print(f"  {c:<18} spearman r = {r:+.3f}")
-
-    # the key question: does structure explain the split better than family?
-    print("\ntomita_gain by complement-degeneracy quartile")
-    m["q"] = pd.qcut(m["comp_degeneracy"], 4, labels=["Q1 low", "Q2", "Q3", "Q4 high"],
-                     duplicates="drop")
-    print(m.groupby("q", observed=True)[["comp_degeneracy", "tomita_gain",
-                                         "node_gain"]].median().round(3).to_string())
+    if has_lab:
+        # tomita_gain and node_gain are NOT labelling-invariant: the cheap
+        # pivot rule takes the lowest-numbered vertex of its source, so
+        # relabelling changes which vertex that is on every call. Pooling
+        # labellings together correlates one fixed structural value against
+        # three different tomita_gain regimes and the signal collapses.
+        # Report the structural claim per labelling; the headline claim in
+        # the report uses final_v3.csv, which is random-labelling only.
+        for lab, g in m.groupby("labelling"):
+            print(f"\n{'=' * 60}\nlabelling = {lab}  ({len(g)} instances)\n{'=' * 60}")
+            correlation_block(g)
+        print(f"\n{'=' * 60}\nall labellings pooled (misleading -- shown only for contrast)"
+              f"\n{'=' * 60}")
+        correlation_block(m)
+    else:
+        correlation_block(m)
 
     plt.figure(figsize=(7, 4.5))
     for fam, d in m.groupby("family"):
@@ -182,6 +211,21 @@ def main(path):
     plt.savefig(FIG / "degeneracy_vs_tomita_gain.png", dpi=150)
     plt.close()
     print(f"\nfigure -> {FIG / 'degeneracy_vs_tomita_gain.png'}")
+
+    if has_lab:
+        plt.figure(figsize=(7, 4.5))
+        for lab, d in m.groupby("labelling"):
+            plt.scatter(d["deg_ratio"], d["tomita_gain"], s=18, alpha=0.7, label=lab)
+        plt.axhline(1.0, color="k", ls="--", lw=1)
+        plt.xlabel("complement degeneracy / n")
+        plt.ylabel("time(pivot) / time(tomita)")
+        plt.title("Complement degeneracy vs Tomita gain, by labelling")
+        plt.legend(fontsize=8)
+        plt.grid(alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(FIG / "degeneracy_vs_tomita_gain_by_labelling.png", dpi=150)
+        plt.close()
+        print(f"figure -> {FIG / 'degeneracy_vs_tomita_gain_by_labelling.png'}")
 
 
 if __name__ == "__main__":
