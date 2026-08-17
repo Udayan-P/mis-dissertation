@@ -228,6 +228,29 @@ def main(path):
     plt.close()
     print(f"\nfigure -> {FIG / 'degeneracy_vs_tomita_gain.png'}")
 
+    # the two predictors that vary on every family at once (the confound):
+    # clique overlap and degeneracy against the tree-size gain, coloured by
+    # family, so the confound is visible rather than hidden in a table.
+    fig, (axl, axr) = plt.subplots(1, 2, figsize=(11, 4.5))
+    for fam, d in m.groupby("family"):
+        axl.scatter(d["clique_overlap"], d["node_gain"], s=18, alpha=0.7, label=fam)
+        axr.scatter(d["degeneracy"], d["node_gain"], s=18, alpha=0.7, label=fam)
+    axl.set_xlabel("clique overlap (mean pairwise Jaccard)")
+    axl.set_ylabel("node_gain (tree size ratio pivot/tomita)")
+    axl.set_title("Clique overlap vs tree-size gain")
+    axl.grid(alpha=0.3)
+    axl.legend(fontsize=8)
+    axr.set_xlabel("degeneracy")
+    axr.set_ylabel("node_gain (tree size ratio pivot/tomita)")
+    axr.set_title("Degeneracy vs tree-size gain")
+    axr.grid(alpha=0.3)
+    axr.legend(fontsize=8)
+    fig.suptitle("Structural predictors of node_gain, coloured by family")
+    fig.tight_layout()
+    fig.savefig(FIG / "structure_vs_node_gain.png", dpi=150)
+    plt.close(fig)
+    print(f"figure -> {FIG / 'structure_vs_node_gain.png'}")
+
     if has_lab:
         plt.figure(figsize=(7, 4.5))
         for lab, d in m.groupby("labelling"):

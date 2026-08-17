@@ -138,7 +138,7 @@ def plots(df):
         plt.savefig(FIG / "pivot_vs_tomita_by_labelling.png", dpi=150)
         plt.close()
 
-    # bitset speedup against n
+    # bitset speedup against n, with the CPython 30-bit digit boundary marked
     plt.figure(figsize=(7, 4.5))
     any_line = False
     for base, bits in [("bk_basic", "bk_basic_bit"), ("bk_pivot", "bk_pivot_bit"),
@@ -153,6 +153,9 @@ def plots(df):
             any_line = True
     if any_line:
         plt.axhline(1.0, color="k", ls="--", lw=1)
+        # a vertex mask needs a second 30-bit digit from n = 31 (sys.int_info)
+        plt.axvline(30.5, color="r", ls=":", lw=1.2,
+                    label="30-bit digit boundary")
         plt.xlabel("n")
         plt.ylabel("speedup from bitsets")
         plt.title("Bitset speedup vs n")
@@ -161,6 +164,42 @@ def plots(df):
         plt.tight_layout()
         plt.savefig(FIG / "bitset_speedup_vs_n.png", dpi=150)
     plt.close()
+
+    # node-count ratio and per-node cost ratio vs n, on one figure: the
+    # interaction between the two is the decomposition that explains the
+    # headline pivot/tomita crossover.
+    w = df[df["algorithm"].isin(["bk_pivot", "bk_tomita"])].pivot_table(
+        index=["instance", "n"], columns="algorithm",
+        values=["median_seconds", "recursion_nodes"]).dropna().reset_index()
+    if {"median_seconds", "recursion_nodes"} <= set(w.columns.get_level_values(0)):
+        w.columns = ["_".join(c).strip("_") for c in w.columns]
+        w["node_ratio"] = w["recursion_nodes_bk_pivot"] / w["recursion_nodes_bk_tomita"]
+        w["us_pivot"] = (w["median_seconds_bk_pivot"] * 1e6
+                          / w["recursion_nodes_bk_pivot"])
+        w["us_tomita"] = (w["median_seconds_bk_tomita"] * 1e6
+                           / w["recursion_nodes_bk_tomita"])
+        w["cost_ratio"] = w["us_tomita"] / w["us_pivot"]
+        g = w.groupby("n")[["node_ratio", "cost_ratio"]].median()
+
+        fig, ax1 = plt.subplots(figsize=(7, 4.5))
+        ax1.plot(g.index, g["node_ratio"], marker="o", ms=4, color="tab:blue",
+                 label="tree-size ratio (nodes: pivot/tomita)")
+        ax1.set_xlabel("n")
+        ax1.set_ylabel("tree-size ratio", color="tab:blue")
+        ax1.tick_params(axis="y", labelcolor="tab:blue")
+        ax2 = ax1.twinx()
+        ax2.plot(g.index, g["cost_ratio"], marker="s", ms=4, color="tab:orange",
+                 label="per-node cost ratio (tomita/pivot)")
+        ax2.set_ylabel("per-node cost ratio", color="tab:orange")
+        ax2.tick_params(axis="y", labelcolor="tab:orange")
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labels1 + labels2, fontsize=7, loc="upper left")
+        plt.title("Tomita wins once tree-size ratio exceeds per-node cost ratio")
+        ax1.grid(alpha=0.3)
+        fig.tight_layout()
+        fig.savefig(FIG / "node_ratio_and_cost_vs_n.png", dpi=150)
+        plt.close(fig)
 
 
 def main(paths):
