@@ -151,6 +151,22 @@ def main(path):
     FIG.mkdir(exist_ok=True)
 
     has_lab = "labelling" in df.columns and df["labelling"].nunique() > 1
+    if has_lab:
+        labs = sorted(df["labelling"].unique())
+        print(f"*** {path.name} has {len(labs)} labellings pooled: {labs} ***")
+        print("*** The S5.6 structural claim is NOT taken from this file. It must be")
+        print("*** quoted from results/final_v3.csv (random labelling only). The")
+        print("*** per-labelling blocks below are informational; the final 'all")
+        print("*** labellings pooled' block is shown only to demonstrate why pooling")
+        print("*** is the wrong thing to do -- do not cite it.\n")
+    else:
+        lab = df["labelling"].iloc[0] if "labelling" in df.columns else "unknown"
+        print(f"*** {path.name}: single labelling = {lab}, {len(df)} rows. ***")
+        if lab == "random":
+            print("*** Safe to quote as the S5.6 structural claim. ***\n")
+        else:
+            print("*** Not the random-labelling file the headline claim is built on. ***\n")
+
     idx = ["instance", "family", "n"] + (["labelling"] if has_lab else [])
 
     ratios = df[df["algorithm"].isin(["bk_pivot", "bk_tomita"])].pivot_table(
