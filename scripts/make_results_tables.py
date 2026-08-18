@@ -90,38 +90,70 @@ def pivot_tomita_table(df):
     g = ratio_by_n(df, "bk_pivot", "bk_tomita", "median_seconds")
     g = g.reset_index()
     g.columns = ["n", "time_pivot_over_tomita", "n_instances"]
-    return ("## S5.2 Headline comparison: time(pivot) / time(tomita)\n\n"
-             f"Source: `{FINAL.name}`. Ratio above 1 means bk_tomita is faster.\n\n"
-             + md_table(g, ["n", "time_pivot_over_tomita", "n_instances"]))
+    pooled = ("## S5.2 Headline comparison: time(pivot) / time(tomita)\n\n"
+              f"Source: `{FINAL.name}`. Ratio above 1 means bk_tomita is "
+              "faster. Pooled over family, this trend is non-monotone "
+              "(rises n=24->28, falls n=28->32, then rises again), not a "
+              "clean crossover -- see the by-family table below for why.\n\n"
+              + md_table(g, ["n", "time_pivot_over_tomita", "n_instances"]))
+
+    w = df[df["algorithm"].isin(["bk_pivot", "bk_tomita"])].pivot_table(
+        index=["instance", "n", "family"], columns="algorithm",
+        values="median_seconds").dropna().reset_index()
+    w["ratio"] = w["bk_pivot"] / w["bk_tomita"]
+    fam = w.groupby(["family", "n"]).agg(
+        time_pivot_over_tomita=("ratio", "median"),
+        n_instances=("ratio", "count")).reset_index()
+    by_family = ("### time(pivot) / time(tomita) by family\n\n"
+                 f"Source: `{FINAL.name}`. The pooled trend above is the "
+                 "average of three different verdicts, not a shared trend "
+                 "with noise on top: ba is above 1 at every n (tomita "
+                 "wins, 3 instances/n), er is below 1 at every n (the "
+                 "cheap rule wins, 9 instances/n), ws moves from below 1 "
+                 "at n=24,26 to mostly above 1 from n=28 on, with one dip "
+                 "back below 1 at n=32 (3 instances/n) -- a real crossover "
+                 "in trend, not a single clean threshold.\n\n"
+                 + md_table(fam, ["family", "n", "time_pivot_over_tomita", "n_instances"]))
+    return pooled + "\n\n" + by_family
 
 
 def node_and_cost_table(df):
-    w = df[df["algorithm"].isin(["bk_basic", "bk_pivot", "bk_tomita"])].pivot_table(
-        index=["instance", "n"], columns="algorithm",
-        values=["median_seconds", "recursion_nodes"]).dropna().reset_index()
-    w.columns = ["_".join(c).strip("_") for c in w.columns]
-    w["basic_over_tomita_nodes"] = (w["recursion_nodes_bk_basic"]
-                                     / w["recursion_nodes_bk_tomita"])
-    w["pivot_over_tomita_nodes"] = (w["recursion_nodes_bk_pivot"]
-                                     / w["recursion_nodes_bk_tomita"])
-    for alg in ["bk_basic", "bk_pivot", "bk_tomita"]:
-        w[f"us_per_node_{alg}"] = (w[f"median_seconds_{alg}"] * 1e6
-                                    / w[f"recursion_nodes_{alg}"])
-    w["cost_ratio_tomita_over_pivot"] = (w["us_per_node_bk_tomita"]
-                                          / w["us_per_node_bk_pivot"])
-    g = w.groupby("n").agg(
-        basic_over_tomita_nodes=("basic_over_tomita_nodes", "median"),
-        pivot_over_tomita_nodes=("pivot_over_tomita_nodes", "median"),
-        us_per_node_basic=("us_per_node_bk_basic", "median"),
-        us_per_node_pivot=("us_per_node_bk_pivot", "median"),
-        us_per_node_tomita=("us_per_node_bk_tomita", "median"),
-        cost_ratio_tomita_over_pivot=("cost_ratio_tomita_over_pivot", "median"),
-    ).reset_index()
+    # Each column is built from only the algorithms it needs, dropna'd on
+    # only those columns. A single three-way pivot_table().dropna() would
+    # drop every instance missing ANY of the three algorithms from ALL
+    # columns, even ones (node_ratio, cost_ratio) that only need two of
+    # them -- that silently shrank n=40 from 15 to 12 instances for
+    # quantities bk_basic's outage has nothing to do with.
+    d = df.copy()
+    d["us_per_node"] = d["median_seconds"] * 1e6 / d["recursion_nodes"]
+
+    def per_algorithm(alg, col):
+        return d[d["algorithm"] == alg].groupby("n")[col].median()
+
+    def ratio(a, b, col):
+        w = d[d["algorithm"].isin([a, b])].pivot_table(
+            index=["instance", "n"], columns="algorithm",
+            values=col).dropna().reset_index()
+        w["ratio"] = w[a] / w[b]
+        return w.groupby("n")["ratio"].median()
+
+    g = pd.DataFrame({
+        "basic_over_tomita_nodes": ratio("bk_basic", "bk_tomita", "recursion_nodes"),
+        "pivot_over_tomita_nodes": ratio("bk_pivot", "bk_tomita", "recursion_nodes"),
+        "us_per_node_basic": per_algorithm("bk_basic", "us_per_node"),
+        "us_per_node_pivot": per_algorithm("bk_pivot", "us_per_node"),
+        "us_per_node_tomita": per_algorithm("bk_tomita", "us_per_node"),
+        "cost_ratio_tomita_over_pivot": ratio("bk_tomita", "bk_pivot", "us_per_node"),
+    }).reset_index().rename(columns={"index": "n"})
     return ("## S5.3 Decomposition: tree-size ratio and per-node cost\n\n"
              f"Source: `{FINAL.name}`. Node ratios: >1 means tomita searches "
              "less. us_per_node is median wall-clock microseconds per "
              "recursion node. cost_ratio_tomita_over_pivot is Tomita's "
-             "per-node cost divided by the cheap rule's.\n\n"
+             "per-node cost divided by the cheap rule's. time_ratio "
+             "(S5.2) equals node_ratio / cost_ratio by construction -- "
+             "this is an accounting identity, not an independent "
+             "prediction; it decomposes the observed ratio, it does not "
+             "verify it.\n\n"
              + md_table(g))
 
 

@@ -12,7 +12,8 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from make_results_tables import coverage_section, md_table, ratio_by_n  # noqa: E402
+from make_results_tables import (  # noqa: E402
+    coverage_section, md_table, node_and_cost_table, ratio_by_n)
 
 
 def test_md_table_formats_n_and_count_as_int_not_float():
@@ -70,3 +71,35 @@ def test_coverage_section_flags_mis_count_disagreement():
         "mis_count": [5, 6],
     })
     assert "DISAGREEMENT" in coverage_section(df)
+
+
+def test_node_and_cost_table_unaffected_by_missing_third_algorithm():
+    """A missing bk_basic row must not drop that instance from
+    pivot_over_tomita_nodes or cost_ratio: those need only bk_pivot and
+    bk_tomita. A single three-way dropna() did exactly that (final_v3.csv
+    n=40: 15 instances have bk_pivot/bk_tomita, only 12 also have bk_basic),
+    silently computing S5.3's headline node_ratio and cost_ratio off 12
+    instances instead of 15.
+    """
+    # pivot/tomita node ratio differs per instance (3.0, 1.0, 2.0) so a
+    # median over the wrong subset gives a different, wrong answer.
+    pivot_nodes = {"a": 30, "b": 10, "c": 20}
+    rows = []
+    for inst, nodes in pivot_nodes.items():
+        rows.append({"instance": inst, "n": 40, "algorithm": "bk_pivot",
+                      "median_seconds": 2.0, "recursion_nodes": nodes})
+        rows.append({"instance": inst, "n": 40, "algorithm": "bk_tomita",
+                      "median_seconds": 1.0, "recursion_nodes": 10})
+    # bk_basic present for only instance "a", whose pivot/tomita ratio (3.0)
+    # is the outlier -- if the bug is present, node_ratio collapses to just
+    # that instance instead of the median over all three (2.0).
+    rows.append({"instance": "a", "n": 40, "algorithm": "bk_basic",
+                  "median_seconds": 9.0, "recursion_nodes": 999})
+    df = pd.DataFrame(rows)
+
+    out = node_and_cost_table(df)
+    lines = [l for l in out.splitlines() if l.startswith("| 40")]
+    assert len(lines) == 1
+    cells = [c.strip() for c in lines[0].strip("|").split("|")]
+    assert cells[2] == "2.000"   # pivot_over_tomita_nodes: median over a, b, c
+    assert cells[2] != "3.000"   # the buggy value: instance "a" only

@@ -16,7 +16,7 @@ Cross-validation (all arms agree on MIS count per instance): ALL AGREE
 
 ## S5.2 Headline comparison: time(pivot) / time(tomita)
 
-Source: `final_v3.csv`. Ratio above 1 means bk_tomita is faster.
+Source: `final_v3.csv`. Ratio above 1 means bk_tomita is faster. Pooled over family, this trend is non-monotone (rises n=24->28, falls n=28->32, then rises again), not a clean crossover -- see the by-family table below for why.
 
 | n | time_pivot_over_tomita | n_instances |
 |---|---|---|
@@ -30,9 +30,43 @@ Source: `final_v3.csv`. Ratio above 1 means bk_tomita is faster.
 | 38 | 1.010 | 15 |
 | 40 | 1.209 | 15 |
 
+### time(pivot) / time(tomita) by family
+
+Source: `final_v3.csv`. The pooled trend above is the average of three different verdicts, not a shared trend with noise on top: ba is above 1 at every n (tomita wins, 3 instances/n), er is below 1 at every n (the cheap rule wins, 9 instances/n), ws moves from below 1 at n=24,26 to mostly above 1 from n=28 on, with one dip back below 1 at n=32 (3 instances/n) -- a real crossover in trend, not a single clean threshold.
+
+| family | n | time_pivot_over_tomita | n_instances |
+|---|---|---|---|
+| ba | 24 | 1.088 | 3 |
+| ba | 26 | 1.556 | 3 |
+| ba | 28 | 1.498 | 3 |
+| ba | 30 | 1.162 | 3 |
+| ba | 32 | 1.602 | 3 |
+| ba | 34 | 1.453 | 3 |
+| ba | 36 | 1.556 | 3 |
+| ba | 38 | 1.014 | 3 |
+| ba | 40 | 1.582 | 3 |
+| er | 24 | 0.839 | 9 |
+| er | 26 | 0.895 | 9 |
+| er | 28 | 0.870 | 9 |
+| er | 30 | 0.958 | 9 |
+| er | 32 | 0.885 | 9 |
+| er | 34 | 0.905 | 9 |
+| er | 36 | 0.836 | 9 |
+| er | 38 | 0.850 | 9 |
+| er | 40 | 0.917 | 9 |
+| ws | 24 | 0.886 | 3 |
+| ws | 26 | 0.810 | 3 |
+| ws | 28 | 1.137 | 3 |
+| ws | 30 | 1.050 | 3 |
+| ws | 32 | 0.981 | 3 |
+| ws | 34 | 1.034 | 3 |
+| ws | 36 | 1.101 | 3 |
+| ws | 38 | 1.208 | 3 |
+| ws | 40 | 1.225 | 3 |
+
 ## S5.3 Decomposition: tree-size ratio and per-node cost
 
-Source: `final_v3.csv`. Node ratios: >1 means tomita searches less. us_per_node is median wall-clock microseconds per recursion node. cost_ratio_tomita_over_pivot is Tomita's per-node cost divided by the cheap rule's.
+Source: `final_v3.csv`. Node ratios: >1 means tomita searches less. us_per_node is median wall-clock microseconds per recursion node. cost_ratio_tomita_over_pivot is Tomita's per-node cost divided by the cheap rule's. time_ratio (S5.2) equals node_ratio / cost_ratio by construction -- this is an accounting identity, not an independent prediction; it decomposes the observed ratio, it does not verify it.
 
 | n | basic_over_tomita_nodes | pivot_over_tomita_nodes | us_per_node_basic | us_per_node_pivot | us_per_node_tomita | cost_ratio_tomita_over_pivot |
 |---|---|---|---|---|---|---|
@@ -44,7 +78,7 @@ Source: `final_v3.csv`. Node ratios: >1 means tomita searches less. us_per_node 
 | 34 | 9.741 | 1.699 | 0.807 | 1.038 | 1.761 | 1.704 |
 | 36 | 11.219 | 1.811 | 0.798 | 1.029 | 1.857 | 1.775 |
 | 38 | 13.106 | 1.847 | 0.804 | 1.042 | 1.794 | 1.782 |
-| 40 | 12.697 | 1.866 | 0.826 | 1.156 | 2.050 | 1.843 |
+| 40 | 12.697 | 1.957 | 0.826 | 1.092 | 1.963 | 1.772 |
 
 ## S5.4 The 2x2: pivot source vs selection cost
 
