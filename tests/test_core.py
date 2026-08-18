@@ -1,4 +1,4 @@
-"""Sanity tests for core predicates — the seed of the W1 correctness harness."""
+"""Sanity tests for core predicates: the seed of the W1 correctness harness."""
 
 import networkx as nx
 

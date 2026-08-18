@@ -112,7 +112,7 @@ def test_unproductive_calls_bounded_and_ordered(name, G):
 
 
 def _cazals_karande(n):
-    """K_n u K_{1,n}, the worst case from Cazals & Karande (RR-5615, Fig. 4).
+    """K_n u K_{1,n}, the worst case from Cazals & Karande (TCS 2008).
 
     Their construction is stated in CLIQUE space, and these algorithms
     enumerate cliques of the complement, so the whole graph is complemented -

@@ -2,9 +2,8 @@
 
 Numbers only, no prose: the source CSV is named per table so a claim in the
 report can be traced back to the data it came from. The structural
-correlation table is deliberately built from final_v3.csv only (Bash and
-Kerbosch, 1973; see CLAUDE.md open item 1 on why pooled labellings collapse
-the correlation).
+correlation table is deliberately built from final_v3.csv only; see CLAUDE.md
+open item 1 on why pooled labellings collapse the correlation.
 
 Usage: python scripts/make_results_tables.py
 Writes results/RESULTS_TABLES.md.

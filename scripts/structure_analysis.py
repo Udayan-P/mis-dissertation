@@ -86,7 +86,7 @@ def clique_overlap(G, sample=200, seed=0):
 def ck_ratio(G):
     """Cazals & Karande's mechanism as a per-instance number.
 
-    RR-5615 / TCS 2008: pivoting from P alone degrades "whenever any node
+    TCS 2008: pivoting from P alone degrades "whenever any node
     in P has a number of neighbors larger than the size of a clique to be
     discovered" - their K_n u K_{1,n} worst case. The algorithms work on
     the complement, so the quantity is the complement's maximum degree
