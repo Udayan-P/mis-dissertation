@@ -5,3 +5,19 @@ __pycache__/
 *.egg-info/
 .ipynb_checkpoints/
 .DS_Store
+
+# Superseded campaign data, deliberately excluded from the archive. These runs predate
+# the measurement fixes of 8-11 August (non-deterministic pivot selection, tracemalloc
+# left on during timing, sorted() inside the scanning pivot rule) and their timings
+# contradict the results this report is built on. The matching .meta.json files stay
+# tracked, so the fact that the runs happened remains on the record; only the superseded
+# numbers are excluded. See project_log/2026-08-27.md.
+results/campaign_first.csv
+results/campaign_v2.csv
+results/crossover_v2.csv
+results/campaign_20260802_2051.csv
+results/crossover_20260802_2148.csv
+results/quick_20260802_2050.csv
+
+# Regenerable from scripts/make_results_tables.py
+results/Results_Tables.pdf
