@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "An empirical study of pivot selection in Bron-Kerbosch enumeration of maximal independent sets"
+abstract: "Algorithm implementations, benchmark harness and analysis scripts for an ablation of the Bron-Kerbosch pivot rule, separating search-tree size from per-node cost across five variants of a single shared recursion."
+authors:
+  - family-names: Purandare
+    given-names: Udayan
+    affiliation: "Department of Computer Science, Durham University"
+    # orcid: "https://orcid.org/0000-0000-0000-0000"   # not registered; add if you obtain one
+version: 1.0.0
+date-released: 2026-08-28
+license: MIT
+repository-code: "https://github.com/Udayan-P/mis-dissertation"
+keywords:
+  - Bron-Kerbosch
+  - maximal independent sets
+  - maximal clique enumeration
+  - pivot selection
+  - empirical algorithmics
+  - graph degeneracy
