@@ -74,12 +74,16 @@ reconstructed from. Instances are never stored, only regenerated from their reco
 
 ## Which CSV backs which result
 
+`RESULTS_TABLES.md` uses the report's own section numbers, so a
+claim in §4.n of the dissertation is backed by §4.n of that file. Its one exception is the
+labelling table, which supports the sub-experiment discussed inside §4.2.
+
 | Data | Backs |
 |------|-------|
-| `results/final_v3.csv` | Everything except the labelling sub-experiment: correctness and coverage, the headline `time(pivot)/time(tomita)` comparison and its by-family split, the tree-size / per-node-cost decomposition, the 2x2, the structural correlations, and the bitset speedups. Report §4.1-§4.6; `RESULTS_TABLES.md` sections S5.2, S5.3, S5.4, S5.6, S5.7. |
-| `results/labelling_v3.csv` | The labelling sub-experiment only — the pivot/tomita ratio under random, native and degeneracy vertex numbering. Report §4.2; `RESULTS_TABLES.md` section S5.5. |
+| `results/final_v3.csv` | Everything except the labelling sub-experiment: correctness and coverage, the headline `time(pivot)/time(tomita)` comparison and its by-family split, the tree-size / per-node-cost decomposition, the 2x2, the structural correlations, and the bitset speedups. Report §4.1-§4.6, and the identically numbered sections of `RESULTS_TABLES.md`. |
+| `results/labelling_v3.csv` | The labelling sub-experiment only — the pivot/tomita ratio under random, native and degeneracy vertex numbering. Report §4.2, and the "§4.2 Labelling" section of `RESULTS_TABLES.md`. |
 
-The structural correlation table (S5.6) is built from `final_v3.csv` **only**, and deliberately.
+The structural correlation table (§4.5) is built from `final_v3.csv` **only**, and deliberately.
 Pooling labellings collapses those correlations — clique overlap against node_gain falls from
 +0.82 on random labelling alone to +0.44 pooled — so quoting them from the labelling campaign
 would be quoting a weaker and genuinely different effect.

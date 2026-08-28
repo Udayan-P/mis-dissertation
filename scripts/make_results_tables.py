@@ -63,7 +63,7 @@ def coverage_section(df):
     counts = df.groupby("algorithm").size()
     expected = counts.max()
     short = counts[counts < expected]
-    lines = ["## Data coverage", "", f"Source: `{FINAL.name}`", "",
+    lines = ["## §4.1 Data coverage", "", f"Source: `{FINAL.name}`", "",
               f"{len(df)} rows total, {df['instance'].nunique()} instances, "
               f"n = {df['n'].min()}..{df['n'].max()}, {len(algos)} arms "
               f"(expected {expected} rows/arm).", ""]
@@ -90,7 +90,7 @@ def pivot_tomita_table(df):
     g = ratio_by_n(df, "bk_pivot", "bk_tomita", "median_seconds")
     g = g.reset_index()
     g.columns = ["n", "time_pivot_over_tomita", "n_instances"]
-    pooled = ("## S5.2 Headline comparison: time(pivot) / time(tomita)\n\n"
+    pooled = ("## §4.2 Headline comparison: time(pivot) / time(tomita)\n\n"
               f"Source: `{FINAL.name}`. Ratio above 1 means bk_tomita is "
               "faster. Pooled over family, this trend is non-monotone "
               "(rises n=24->28, falls n=28->32, then rises again), not a "
@@ -145,12 +145,12 @@ def node_and_cost_table(df):
         "us_per_node_tomita": per_algorithm("bk_tomita", "us_per_node"),
         "cost_ratio_tomita_over_pivot": ratio("bk_tomita", "bk_pivot", "us_per_node"),
     }).reset_index().rename(columns={"index": "n"})
-    return ("## S5.3 Decomposition: tree-size ratio and per-node cost\n\n"
+    return ("## §4.3 Decomposition: tree-size ratio and per-node cost\n\n"
              f"Source: `{FINAL.name}`. Node ratios: >1 means tomita searches "
              "less. us_per_node is median wall-clock microseconds per "
              "recursion node. cost_ratio_tomita_over_pivot is Tomita's "
              "per-node cost divided by the cheap rule's. time_ratio "
-             "(S5.2) equals node_ratio / cost_ratio by construction -- "
+             "(§4.2) equals node_ratio / cost_ratio by construction -- "
              "this is an accounting identity, not an independent "
              "prediction; it decomposes the observed ratio, it does not "
              "verify it.\n\n"
@@ -164,7 +164,7 @@ def two_by_two_table(df):
         ("bk_pivot_p", "bk_ikgp", "source P: cheap selection vs scanning selection"),
         ("bk_pivot", "bk_tomita", "source P union X: cheap selection vs scanning selection"),
     ]
-    sections = ["## S5.4 The 2x2: pivot source vs selection cost\n",
+    sections = ["## §4.4 The 2x2: pivot source vs selection cost\n",
                 f"Source: `{FINAL.name}`. Ratio above 1 means the second "
                 "named arm is faster (time) or searches less (nodes).\n"]
     for a, b, desc in pairs:
@@ -182,7 +182,7 @@ def two_by_two_table(df):
 
 def labelling_table(path):
     if not path.exists():
-        return f"## S5.5 Labelling breakdown\n\nSource `{path.name}` not found.\n"
+        return f"## §4.2 Labelling breakdown\n\nSource `{path.name}` not found.\n"
     df = pd.read_csv(path)
     w = df[df["algorithm"].isin(["bk_pivot", "bk_tomita"])].pivot_table(
         index=["instance", "n", "labelling"], columns="algorithm",
@@ -190,7 +190,7 @@ def labelling_table(path):
     w["ratio"] = w["bk_pivot"] / w["bk_tomita"]
     g = w.groupby(["labelling", "n"])["ratio"].agg(
         median="median", n_instances="count").reset_index()
-    return ("## S5.5 Labelling: time(pivot) / time(tomita) by labelling\n\n"
+    return ("## §4.2 Labelling: time(pivot) / time(tomita) by labelling\n\n"
              f"Source: `{path.name}` (random, native, degeneracy pooled in "
              "the file but never in a statistic below). Ratio above 1 means "
              "bk_tomita is faster.\n\n" + md_table(g))
@@ -270,7 +270,7 @@ def structural_correlation_table(df):
             "spearman_r_node_gain": spearman(m[c], m["node_gain"]),
         })
     tbl = pd.DataFrame(rows)
-    return ("## S5.6 Structural correlation table\n\n"
+    return ("## §4.5 Structural correlation table\n\n"
              f"Source: `{FINAL.name}` ONLY (random labelling). {len(m)} "
              "instances. tomita_gain = time(pivot)/time(tomita); "
              "node_gain = nodes(pivot)/nodes(tomita).\n\n"
@@ -278,7 +278,7 @@ def structural_correlation_table(df):
 
 
 def bitset_table(df):
-    sections = ["## S5.7 Bitset speedups\n", f"Source: `{FINAL.name}`. "
+    sections = ["## §4.6 Bitset speedups\n", f"Source: `{FINAL.name}`. "
                 "Ratio above 1 means the bitset variant is faster.\n"]
     for base, bits in [("bk_basic", "bk_basic_bit"), ("bk_pivot", "bk_pivot_bit"),
                        ("bk_tomita", "bk_tomita_bit")]:
