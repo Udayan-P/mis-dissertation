@@ -10,6 +10,9 @@ authors:
     # orcid: "https://orcid.org/0000-0000-0000-0000"   # not registered; add if you obtain one
 version: 1.0.0
 date-released: 2026-08-28
+# Version DOI for release 1.0.0. NOT the concept DOI (…917), which always
+# resolves to the newest version rather than to the archived 1.0.0 code.
+doi: 10.5281/zenodo.22161918
 license: MIT
 repository-code: "https://github.com/Udayan-P/mis-dissertation"
 keywords:
