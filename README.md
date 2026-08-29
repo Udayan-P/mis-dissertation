@@ -1,6 +1,6 @@
 # An empirical study of pivot selection in Bron-Kerbosch enumeration of maximal independent sets
 
-MSc Dissertation — Udayan Purandare (rbfn02), supervised by Dr Igor Razgon.
+MSc Dissertation - Udayan Purandare (rbfn02), supervised by Dr Igor Razgon.
 MSc Advanced Computer Science, Durham University, 2025–26.
 
 ## Setup (local)
